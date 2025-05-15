@@ -1,0 +1,55 @@
+version: "3.7"
+
+services:
+  mariadb:
+    image: mariadb:10.8
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: 123
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      - frappe-net
+
+  redis:
+    image: redis:alpine
+    networks:
+      - frappe-net
+
+  frappe:
+    image: frappe/bench:latest
+    command: bash /workspace/init.sh
+    environment:
+      - SHELL=/bin/bash
+    working_dir: /home/frappe
+    volumes:
+      - .:/workspace
+    ports:
+      - "9000:9000"  # Expuesto solo para debug
+    depends_on:
+      - mariadb
+      - redis
+    networks:
+      - frappe-net
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frappe
+    networks:
+      - frappe-net
+
+volumes:
+  mariadb-data:
+
+networks:
+  frappe-net:
+    driver: bridge
