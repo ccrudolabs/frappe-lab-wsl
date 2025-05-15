@@ -1,8 +1,33 @@
-node_modules
-.env
-__pycache__
-*.log
-frappe-bench
-*.zip
-backups
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
+# Node.js
+node_modules/
+
+# Docker
+.env
+docker-compose.override.yml
+
+# Frappe
+frappe-bench/
+sites/*/private/backups/
+sites/assets/
+sites/*/logs/
+*.log
+
+# Archivos de sistema
+.DS_Store
+*.swp
+*.swo
+
+# Archivos temporales
+*.zip
+*.tar.gz
+*.bak
+*.tmp
+
+# Otros
+backups/
