@@ -1,54 +1,60 @@
-version: "3.7"
+version: "3.9"
 
 services:
+
   mariadb:
     image: mariadb:10.8
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --skip-character-set-client-handshake
-      - --skip-innodb-read-only-compressed
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: 123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - mariadb-data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
     networks:
       - frappe-net
 
   redis:
     image: redis:alpine
+    restart: unless-stopped
     networks:
       - frappe-net
 
   frappe:
     image: frappe/bench:latest
-    command: bash /workspace/init.sh
-    environment:
-      - SHELL=/bin/bash
-    working_dir: /home/frappe
-    volumes:
-      - .:/workspace
+    restart: unless-stopped
     ports:
-      - "9000:9000"  # Expuesto solo para debug
+      - "9000:9000"
+    volumes:
+      - ./init.sh:/workspace/init.sh:rw
+      - ./.env:/workspace/.env:ro
+    environment:
+      DB_HOST: mariadb
+      REDIS_CACHE: ${REDIS_CACHE}
+      REDIS_QUEUE: ${REDIS_QUEUE}
+      REDIS_SOCKETIO: ${REDIS_SOCKETIO}
+    command: sleep infinity
+    networks:
+      - frappe-net
     depends_on:
       - mariadb
       - redis
-    networks:
-      - frappe-net
 
   nginx:
     image: nginx:latest
+    restart: unless-stopped
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - frappe
     networks:
       - frappe-net
 
 volumes:
-  mariadb-data:
+  mariadb_data:
 
 networks:
   frappe-net:

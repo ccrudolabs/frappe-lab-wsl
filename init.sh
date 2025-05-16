@@ -1,43 +1,48 @@
+
 #!/bin/bash
-# Inicializa Frappe Bench dentro de un contenedor Docker
+# Inicializa Frappe Bench dentro de un contenedor Docker en entorno de laboratorio (WSL o Azure)
 
 set -euo pipefail
 
-echo "Iniciando Frappe Bench..."
+echo "🟢 Iniciando Frappe Bench..."
 
-# Variables de entorno
-dev_environment=true
+# Cargar variables de entorno
+echo "📦 Cargando archivo .env..."
+source /workspace/.env
 
-# Validar si bench ya existe
-if [ -d "/home/frappe/frappe-bench/apps/frappe" ]; then
-    echo "Bench ya existe. Saltando inicialización."
-    cd /home/frappe/frappe-bench
+BENCH_PATH="/workspace/frappe-bench"
+
+# Verificar si el bench ya está correctamente instalado
+if [ -d "$BENCH_PATH" ] && [ -f "$BENCH_PATH/Procfile" ] && [ -d "$BENCH_PATH/apps" ]; then
+    echo "⚠️  El bench ya existe y está completo. Saltando inicialización..."
+    cd "$BENCH_PATH"
 else
-    echo "Creando nuevo bench..."
-
-    export PATH="${NVM_DIR}/versions/node/v${NODE_VERSION_DEVELOP:-18}/bin/:${PATH}"
+    echo "🛠️  Creando nuevo bench en $BENCH_PATH..."
+    cd /workspace
 
     bench init --skip-redis-config-generation frappe-bench
     cd frappe-bench
 
-    echo "Configurando servicios externos..."
-    if [ "$dev_environment" = true ]; then
-        bench set-mariadb-host mariadb
-        bench set-redis-cache-host redis:6379
-        bench set-redis-queue-host redis:6379
-        bench set-redis-socketio-host redis:6379
-    fi
+    echo "🔧 Configurando servicios de Redis y MariaDB..."
+    bench set-mariadb-host mariadb
+    bench set-redis-cache-host redis:6379
+    bench set-redis-queue-host redis:6379
+    bench set-redis-socketio-host redis:6379
 
-    echo "Modificando Procfile..."
+    echo "🧹 Limpiando Procfile para entorno de laboratorio..."
     sed -i '/redis/d' Procfile || true
     sed -i '/watch/d' Procfile || true
-    sed -i 's/bench serve.*/bench serve --port 80/' Procfile || true
+    sed -i 's/bench serve.*/bench serve --port 9000/' Procfile || true
 
-    echo "Creando nuevo sitio..."
-    bench new-site frappe-lms.local         --force         --mariadb-root-password 123         --admin-password admin         --mariadb-user-host-login-scope='%'
+    echo "🌐 Creando sitio: $SITE_NAME"
+    bench new-site "$SITE_NAME" \
+        --force \
+        --mariadb-root-password "$MYSQL_ROOT_PASSWORD" \
+        --admin-password "$FRAPPE_ADMIN_PASS" \
+        --mariadb-user-host-login-scope='%'
 
-    bench use frappe-lms.local
+    bench use "$SITE_NAME"
 fi
 
-echo "Iniciando servidor Frappe..."
-bench start
+echo "✅ Inicialización completada. El servidor puede iniciarse con:"
+echo "   cd $BENCH_PATH && bench start"
